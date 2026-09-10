@@ -45,7 +45,7 @@
     <!-- Quick Admin Login Button -->
     <div style="margin-top: 1.25rem; padding: 0.85rem; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 0.5rem; text-align: center;">
       <div style="font-size: 0.725rem; color: #64748B; margin-bottom: 0.5rem; font-weight: 500;">
-        Akses Cepat Pengujian Sistem:
+        Akses Khusus Administrator:
       </div>
       <button type="button" onclick="fillAdminLogin()" class="btn btn-secondary btn-sm w-full" style="font-size: 0.775rem; font-weight: 600; color: #0A2540;">
         ⚡ Masuk sebagai Admin BKN (adminbkn)
@@ -61,8 +61,11 @@
 
 <script>
   function fillAdminLogin() {
-    document.getElementById('username').value = 'adminbkn';
-    document.getElementById('password').value = 'admin123';
+    const userField = document.getElementById('username');
+    const passField = document.getElementById('password');
+    userField.value = 'adminbkn';
+    passField.value = '';
+    passField.focus();
   }
 </script>
 
