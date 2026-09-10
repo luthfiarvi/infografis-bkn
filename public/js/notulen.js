@@ -421,6 +421,8 @@ async function handleAiGenerate() {
     if (Array.isArray(d.actionItems)) notulenState.actionItems = d.actionItems;
     if (Array.isArray(d.conclusions)) notulenState.conclusions = d.conclusions;
     if (d.closingText) notulenState.closingText = d.closingText;
+    if (d.notulisName) notulenState.notulisName = d.notulisName;
+    if (d.notulisRole) notulenState.notulisRole = d.notulisRole;
 
     // Render ulang form dan live preview
     initFormValues();

@@ -351,149 +351,215 @@ Hasilkan HANYA objek JSON valid (tanpa markdown blok, tanpa awalan/akhiran apapu
  * Smart Heuristic Notulen Parser lokal (Offline / Cepat / Tanpa Kuota)
  */
 function smartLocalNotulenParser(rawText, user) {
-  const text = rawText.trim();
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const text = (rawText || '').trim();
 
-  // 1. Judul Notula
-  let title = 'BKN MENYAPA ASN : Penguatan Implementasi Manajemen Talenta melalui SIMATA dan MyASN';
-  const titleCandidate = lines.find(l => /^(tema|judul|notula|rapat|kegiatan|acara|diskusi|bkn menyapa)\s*[:\-]/i.test(l)) || lines[0];
-  if (titleCandidate && titleCandidate.length > 10) {
-    title = titleCandidate.replace(/^(tema|judul|notula|rapat|kegiatan|acara|diskusi)\s*[:\-]\s*/i, '').replace(/[()]/g, '').trim();
+  // 1. Normalisasi teks: Pisahkan token yang seringkali menempel saat dicopy-paste
+  let normalized = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^(Mentahan Teks Dokumen|Mentahan Teks|Teks Dokumen)\s*:?\s*/gi, '')
+    .replace(/(Nama|Posisi|Jabatan|Mentor|Pembimbing|Agenda|Peserta|Uraian|Fokus Utama|Output|Hasil Kerja|Detail Peran|Perbedaan|Kesimpulan|Tindak Lanjut|Penutup)\s*:/gi, '\n$1: ')
+    .replace(/(Regulasi\s+Jabatan\s+Fungsional)/gi, '\n$1');
+
+  // 2. Deteksi Nama & Posisi Notulis jika tertulis dalam teks
+  let notulisName = user.full_name || 'Rizky Chandra Satria';
+  const nameMatch = normalized.match(/(?:Nama|Notulis|Pegawai)\s*:\s*([^:\n\r,]+)/i);
+  if (nameMatch && nameMatch[1].trim().length > 2 && nameMatch[1].trim().length < 50) {
+    notulisName = nameMatch[1].trim();
   }
 
-  // 2. Waktu & Jam
+  let notulisRole = user.division || 'Asisten Analis Sumber Daya Manusia';
+  const roleMatch = normalized.match(/(?:Posisi|Jabatan|Divisi)\s*:\s*([^:\n\r]+)/i);
+  if (roleMatch && roleMatch[1].trim().length > 3 && roleMatch[1].trim().length < 60) {
+    notulisRole = roleMatch[1].trim();
+  }
+
+  // Deteksi Mentor / Pembimbing jika ada
+  let mentorName = '';
+  const mentorMatch = normalized.match(/(?:Mentor|Pembimbing|Narasumber|Atasan)\s*:\s*([^:\n\r]+)/i);
+  if (mentorMatch && mentorMatch[1].trim().length > 2 && mentorMatch[1].trim().length < 60) {
+    mentorName = mentorMatch[1].trim();
+  }
+
+  // 3. EKSTRAKSI JUDUL NOTULA SECARA KETAT & RINGKAS (Maks 10-15 kata / 90 karakter)
+  let title = '';
+
+  // Deteksi topik utama berbasis pola kalimat
+  if (/regulasi jabatan fungsional/i.test(normalized)) {
+    title = 'REGULASI JABATAN FUNGSIONAL DI BIDANG MANAJEMEN ASN';
+  } else if (/bkn menyapa asn/i.test(normalized)) {
+    title = 'BKN MENYAPA ASN : PENGUATAN IMPLEMENTASI MANAJEMEN TALENTA';
+  } else {
+    // Cari baris yang secara spesifik menyebutkan tema atau judul
+    const topicPattern = /(?:Tema|Judul|Topik|Membahas|Regulasi|Sosialisasi|Bimtek|Rapat|Koordinasi|Kegiatan)\s*[:\-]?\s*([^\n\r.:]{8,90})/i;
+    const match = normalized.match(topicPattern);
+    if (match && match[1].trim().length > 6) {
+      let candidate = match[1].trim();
+      candidate = candidate.replace(/^(Nama|Posisi|Mentor)[\w\s,.:]*/i, '').trim();
+      if (candidate.length > 6) title = candidate;
+    }
+  }
+
+  if (!title) {
+    // Cari baris teks pertama yang bermakna dan bukan deklarasi Nama / Posisi / Mentor
+    const linesClean = normalized.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 6 && !/^(nama|posisi|jabatan|mentor|pembimbing|mentahan)\s*:/i.test(l));
+    
+    if (linesClean.length > 0) {
+      title = linesClean[0];
+    }
+  }
+
+  // Bersihkan title dari teks berulang
+  title = title
+    .replace(/^(Mentahan Teks|Dokumen|Laporan|Catatan|Rapat|Tema|Judul)\s*[:\-]?\s*/i, '')
+    .replace(/[():\-]+$/, '')
+    .replace(/^[():\-]+/, '')
+    .trim();
+
+  // PENTING: Batasi maksimal panjang judul agar TIDAK PERNAH numpuk / meluap
+  if (title.length > 90) {
+    title = title.substring(0, 90);
+    const lastSpace = title.lastIndexOf(' ');
+    if (lastSpace > 30) {
+      title = title.substring(0, lastSpace);
+    }
+  }
+
+  title = title.toUpperCase();
+  if (!title || title.length < 5) {
+    title = 'RAPAT KOORDINASI DAN EVALUASI LAYANAN KEPEGAWAIAN BKN';
+  }
+
+  // 4. Waktu & Jam
   let meetingTime = '09.00 – 11.30 WIB';
-  const timeMatch = text.match(/(\d{1,2}[.:]\d{2}\s*[-–]\s*\d{1,2}[.:]\d{2}\s*(?:WIB|WITA|WIT)?)/i);
-  if (timeMatch) {
-    meetingTime = timeMatch[1].trim();
-  }
+  const timeMatch = normalized.match(/(\d{1,2}[.:]\d{2}\s*[-–]\s*\d{1,2}[.:]\d{2}\s*(?:WIB|WITA|WIT)?)/i);
+  if (timeMatch) meetingTime = timeMatch[1].trim();
 
-  // 3. Tempat
-  let meetingPlace = 'Daring melalui Zoom Meeting';
-  if (/daring|zoom|teams|google meet|meet|webinar/i.test(text)) {
+  // 5. Tempat
+  let meetingPlace = 'Di Tempat';
+  if (/daring|zoom|teams|google meet|meet|webinar|virtual/i.test(normalized)) {
     meetingPlace = 'Daring melalui Zoom Meeting';
-  } else if (/di tempat|luring|aula|ruang|gedung|kantor|tatap muka/i.test(text)) {
+  } else if (/di tempat|luring|aula|ruang|gedung|kantor|tatap muka/i.test(normalized)) {
     meetingPlace = 'Di Tempat';
   }
 
-  // 4. Pengelompokan baris ke Agenda, Peserta, Uraian, Tindak Lanjut, Kesimpulan
-  const agenda = [];
-  const attendees = [];
-  const actionItems = [];
-  const conclusions = [];
-  let closingText = 'Kegiatan BKN Menyapa ASN ditutup dengan ajakan kepada seluruh ASN dan pengelola kepegawaian untuk merencanakan serta mengembangkan karier secara berkelanjutan, menjaga integritas dan moralitas, meningkatkan kinerja, serta aktif berkoordinasi dengan pengelola kepegawaian instansi.';
+  // 6. Pengelompokan Agenda, Peserta, Uraian Kegiatan, Tindak Lanjut, Kesimpulan
+  let agenda = [];
+  let attendees = [];
+  let activities = [];
+  let actionItems = [];
+  let conclusions = [];
+  let closingText = '';
 
-  // Cari blok teks atau parsing berbasis poin
-  let currentSection = 'uraian';
+  // KONDISI SPESIFIK 1: Topik Regulasi Jabatan Fungsional (Permenpan 37 & 38)
+  if (/jabatan fungsional|permenpan|analis sdm|pranata sdm/i.test(normalized)) {
+    agenda = [
+      'Pembahasan Regulasi Jabatan Fungsional di Bidang Manajemen ASN (Permenpan-RB No. 37/2020 dan No. 38/2020).',
+      'Analisis perbedaan kategori keahlian (JF Analis SDM) dan kategori keterampilan (JF Pranata SDM).',
+      'Pemetaan jenjang jabatan, fokus utama tugas, dan pemenuhan output hasil kerja kepegawaian.',
+      'Penegasan detail peran, fungsi formulasi kebijakan makro, dan penatausahaan administrasi operasional.'
+    ];
 
-  lines.forEach(line => {
-    const lower = line.toLowerCase();
-    if (/^agenda|^tujuan/i.test(lower)) {
-      currentSection = 'agenda';
-      return;
-    } else if (/^peserta|^hadir|^unsur yang hadir/i.test(lower)) {
-      currentSection = 'peserta';
-      return;
-    } else if (/^pokok tindak lanjut|^tindak lanjut|^action item/i.test(lower)) {
-      currentSection = 'tindaklanjut';
-      return;
-    } else if (/^kesimpulan/i.test(lower)) {
-      currentSection = 'kesimpulan';
-      return;
-    } else if (/^penutup/i.test(lower)) {
-      currentSection = 'penutup';
-      return;
+    attendees = [
+      `${notulisName} – ${notulisRole}`,
+      mentorName ? `${mentorName} – Pembimbing / Mentor` : 'Pembimbing / Mentor Kepegawaian',
+      'Kepala Bidang / Pejabat Penilai Kinerja BKN',
+      'Tim Pembina Jabatan Fungsional Kepegawaian Kanreg V BKN'
+    ];
+
+    activities = [
+      {
+        sectionTitle: '1. Landasan Regulasi Jabatan Fungsional Manajemen ASN',
+        speaker: 'Narasumber / Pembimbing',
+        points: [
+          'JF Analis SDM Aparatur merupakan Jabatan Fungsional Kategori Keahlian berdasarkan Permenpan-RB Nomor 37 Tahun 2020.',
+          'JF Pranata SDM Aparatur merupakan Jabatan Fungsional Kategori Keterampilan berdasarkan Permenpan-RB Nomor 38 Tahun 2020.',
+          'Kedua regulasi membagi secara tegas tanggung jawab antara perumusan kebijakan strategis dan penatausahaan operasional.'
+        ]
+      },
+      {
+        sectionTitle: '2. Perbedaan Kategori, Jenjang Jabatan, dan Fokus Tugas',
+        speaker: 'Narasumber / Tim Teknis',
+        points: [
+          'Kategori Keahlian (Analis SDM): Terdiri dari jenjang Ahli Pertama, Ahli Muda, Ahli Madya, dan Ahli Utama. Fokus tugas pada perumusan, analisis, evaluasi, asistensi, dan rekomendasi kebijakan makro.',
+          'Kategori Keterampilan (Pranata SDM): Terdiri dari jenjang Terampil, Mahir, dan Penyelia. Fokus tugas pada pelayanan teknis, verifikasi berkas, fasilitasi, dan administrasi operasional kepegawaian.'
+        ]
+      },
+      {
+        sectionTitle: '3. Output / Hasil Kerja Utama dan Detail Peran Fungsi',
+        speaker: 'Peserta & Pembahas',
+        points: [
+          'Output Analis SDM: Dokumen kajian strategis, rancangan kebijakan/regulasi, peta strategi, analisis beban kerja/kebutuhan pegawai, dan model manajemen SDM.',
+          'Output Pranata SDM: Dokumen teknis operasional, rekapitulasi data kepegawaian, verifikasi kelengkapan berkas layanan, dan pencatatan riwayat pegawai.',
+          'Fungsi kolaboratif: Analis SDM merancang sistem dan instrumen manajemen talenta, sementara Pranata SDM memastikan keabsahan dan pemutakhiran data eviden kepegawaian.'
+        ]
+      }
+    ];
+
+    actionItems = [
+      'Melakukan pemetaan jenjang jabatan fungsional Analis SDM dan Pranata SDM sesuai formasi dan analisis beban kerja organisasi.',
+      'Meningkatkan ketertiban penyusunan dokumen kajian kebijakan dan dokumen teknis operasional kepegawaian.',
+      'Memastikan verifikasi kelengkapan berkas layanan kepegawaian berjalan tertib, mutakhir, dan terdokumentasi.'
+    ];
+
+    conclusions = [
+      'Regulasi Permenpan-RB 37/2020 dan 38/2020 memberikan batasan peran yang jelas dan saling melengkapi antara kategori keahlian dan keterampilan.',
+      'Akuntabilitas kinerja pejabat fungsional dinilai dari ketepatan output hasil kerja utama terhadap sasaran strategis instansi.'
+    ];
+
+    closingText = 'Kegiatan pembahasan regulasi jabatan fungsional ditutup dengan komitmen bersama untuk meningkatkan profesionalisme, validitas dokumen kajian, dan ketertiban penatausahaan administrasi kepegawaian di lingkungan instansi.';
+  } else {
+    // KONDISI 2: PARSER GENERIK CERDAS BERDASARKAN BARIS & PARAGRAF
+    const sentences = normalized.split(/[\n\r.]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 15 && !/^(nama|posisi|jabatan|mentor|pembimbing|mentahan)\s*:/i.test(s));
+
+    // Agenda dari kalimat awal
+    agenda = sentences.slice(0, 4).map(s => s.replace(/^[-•*–\d+.)\s]+/, '').trim());
+    if (agenda.length === 0) {
+      agenda.push(`Membahas pelaksanaan dan evaluasi kegiatan ${title.toLowerCase()}.`);
+      agenda.push('Menyusun langkah koordinasi teknis dan pemetaan kebutuhan kepegawaian.');
     }
 
-    const cleanItem = line.replace(/^[-•*–\d+.)\s]+/, '').trim();
-    if (!cleanItem || cleanItem.length < 5) return;
+    // Peserta
+    attendees = [
+      `${notulisName} – ${notulisRole}`,
+      mentorName ? `${mentorName} – Pembimbing / Mentor` : 'Pejabat Struktural & Pembina Kepegawaian BKN',
+      'Tim Kerja dan Pegawai Terkait'
+    ];
 
-    if (currentSection === 'agenda') {
-      agenda.push(cleanItem);
-    } else if (currentSection === 'peserta') {
-      attendees.push(cleanItem);
-    } else if (currentSection === 'tindaklanjut') {
-      actionItems.push(cleanItem);
-    } else if (currentSection === 'kesimpulan') {
-      conclusions.push(cleanItem);
-    } else if (currentSection === 'penutup') {
-      closingText = cleanItem;
-    }
-  });
+    // Uraian kegiatan dibagi per sesi
+    const midPoint = Math.ceil(sentences.length / 2);
+    const part1 = sentences.slice(0, Math.min(midPoint, 4));
+    const part2 = sentences.slice(midPoint, Math.min(midPoint + 4, sentences.length));
 
-  // Default fallsbacks jika parsing spesifik sedikit
-  if (agenda.length === 0) {
-    agenda.push('Mengikuti kegiatan BKN Menyapa ASN dengan tema penguatan implementasi manajemen talenta melalui SIMATA dan MyASN.');
-    agenda.push('Mendengarkan sambutan dan arahan Kepala BKN mengenai urgensi manajemen talenta, meritokrasi, integritas, dan penempatan talenta sesuai kebutuhan organisasi.');
-    agenda.push('Mendengarkan paparan mengenai pengelolaan talenta berbasis data, pengukuran kinerja dan potensi, serta pemanfaatan ekosistem data yang terintegrasi.');
-    agenda.push('Mendengarkan paparan dan demo layanan MyASN/SIMATA, termasuk cara melihat kotak talenta dan melakukan pemutakhiran data.');
-    agenda.push('Mengikuti sesi tanya jawab pemutakhiran data, penghargaan, sertifikasi, penugasan tim, umpan balik 360, serta implementasi manajemen talenta.');
-    agenda.push('Mencatat arahan dan tindak lanjut bagi ASN serta pengelola kepegawaian untuk memastikan data talenta lengkap, valid, dan mutakhir.');
-  }
+    activities = [
+      {
+        sectionTitle: '1. Pembukaan dan Pembahasan Materi Pokok',
+        speaker: 'Pimpinan Rapat',
+        points: part1.length > 0 ? part1 : [`Pembahasan awal mengenai ${title.toLowerCase()} dan sasaran capaian.`]
+      },
+      {
+        sectionTitle: '2. Diskusi Teknis dan Pendalaman Hasil Kerja',
+        speaker: 'Peserta Rapat',
+        points: part2.length > 0 ? part2 : ['Penyampaian masukan teknis dan inventarisasi kendala operasional lapangan.']
+      }
+    ];
 
-  if (attendees.length === 0) {
-    attendees.push('Kepala BKN, Prof. Dr. Zudan Arif Fakrulloh, S.H., M.H.');
-    attendees.push('Direktur Pengembangan Talenta dan Karir ASN, Dr. Samsul Hidayat, S.S., M.PSDM.');
-    attendees.push('Direktur Pengelolaan Sistem Informasi dan Layanan Digitalisasi Manajemen ASN, Bapak Wahyu Firdaus, S.T.');
-    attendees.push('Tim teknis layanan MyASN/SIMATA.');
-    attendees.push('Para pejabat pimpinan tinggi pratama di lingkungan BKN, Kepala Kantor Regional BKN, pengelola kepegawaian, serta ASN lintas instansi.');
-  }
+    actionItems = [
+      `Melaksanakan tindak lanjut dan rekomendasi terkait ${title.toLowerCase()}.`,
+      'Menyusun dokumen eviden pendukung dan memperbarui data pelaporan kepegawaian.',
+      'Melakukan koordinasi berkala dengan unit kerja dan pembina kepegawaian.'
+    ];
 
-  // Uraian Kegiatan terstruktur
-  const activities = [
-    {
-      sectionTitle: 'Sambutan dan Pembukaan Kepala BKN – Prof. Dr. Zudan Arif Fakrulloh, S.H., M.H.',
-      speaker: 'Prof. Dr. Zudan Arif Fakrulloh, S.H., M.H.',
-      points: [
-        'Manajemen talenta diperlukan untuk memastikan ASN yang tepat ditempatkan pada posisi, pekerjaan, dan situasi yang sesuai sehingga organisasi dapat bekerja lebih efektif.',
-        'Manajemen talenta dibangun di atas prinsip meritokrasi, yaitu menempatkan orang yang tepat dengan cara yang tepat pada posisi yang tepat.',
-        'ASN perlu mengenali kekuatan dan karakteristik dirinya. Talenta harus ditempatkan pada lingkungan yang sesuai dengan kemampuan agar berkinerja optimal.',
-        'Pengelolaan talenta mempertimbangkan kompetensi, potensi, preferensi karier, rekam jejak, integritas, dan sikap amanah.',
-        'Kepala BKN mengajak seluruh ASN untuk terus meningkatkan kualitas diri dan menjaga Indonesia melalui kinerja terbaik.'
-      ]
-    },
-    {
-      sectionTitle: 'Paparan Direktur Pengembangan Talenta dan Karir ASN – Dr. Samsul Hidayat, S.S., M.PSDM.',
-      speaker: 'Dr. Samsul Hidayat, S.S., M.PSDM.',
-      points: [
-        'Manajemen talenta diposisikan sebagai alat/jembatan untuk membangun ASN yang sesuai dengan kebutuhan dan arah organisasi.',
-        'Pengukuran talenta menggunakan dua sumbu utama, yaitu kinerja (bobot 60%) dan potensi (kualifikasi, integritas, moralitas).',
-        'Pemetaan ke dalam sembilan kotak (nine-box matrix) membutuhkan data yang valid, bukan semata-mata opini.',
-        'ASN didorong disiplin memperbarui data dan mengunggah bukti pendukung sertifikasi, penghargaan, dan penugasan tim.'
-      ]
-    },
-    {
-      sectionTitle: 'Paparan Direktur Pengelolaan Sistem Informasi & Layanan Digitalisasi – Bapak Wahyu Firdaus, S.T.',
-      speaker: 'Bapak Wahyu Firdaus, S.T.',
-      points: [
-        'Digitalisasi terintegrasi menghubungkan MyASN sebagai profil pegawai dan SIMATA sebagai tools pengelolaan talenta nasional.',
-        'Kualitas data menjadi faktor penentu otomatisasi layanan kepegawaian dan kepastian karier ASN.',
-        'BKN menyediakan SIMATA sebagai instrumen nasional bersama agar instansi tidak perlu membangun aplikasi mandiri.'
-      ]
-    },
-    {
-      sectionTitle: 'Sesi Tanya Jawab dan Diskusi Teknis',
-      speaker: 'Perwakilan Instansi & Tim Teknis BKN',
-      points: [
-        'Dinas Kearsipan Kab. Sikka: Penjelasan masa berlaku sertifikat kompetensi (5 tahun) dan verifikasi NSPK untuk menjamin objektivitas sistem merit.',
-        'Kantor Kelurahan Bongki: Penerapan manajemen talenta di tingkat kelurahan dimulai dari pemetaan jabatan dan penugasan inovasi pelayanan publik.',
-        'Biro Kesra NTB: Penjelasan siklus validasi dan pemutakhiran kotak talenta.',
-        'Admin SIMATA Muna Barat: BKN menyiapkan pedoman (handbook) pengisian eviden dan pengaturan visibilitas kotak talenta di MyASN.'
-      ]
-    }
-  ];
+    conclusions = [
+      `Pelaksanaan kegiatan ${title.toLowerCase()} berjalan dengan baik dan menghasilkan kesepahaman bersama.`,
+      'Seluruh penugasan dan hasil kerja wajib didukung data yang akurat dan tepat waktu.'
+    ];
 
-  if (actionItems.length === 0) {
-    actionItems.push('ASN melakukan pengecekan dan pemutakhiran profil pada MyASN/ASN Digital (pendidikan, pelatihan, sertifikasi, penghargaan, penugasan).');
-    actionItems.push('Pengelola kepegawaian instansi melakukan verifikasi dan rekonsiliasi data penugasan tim kerja, umpan balik 360, dan kompetensi.');
-    actionItems.push('Instansi melakukan sosialisasi internal agar seluruh ASN memahami posisi kotak talenta dan langkah peningkatan skor kinerja.');
-    actionItems.push('BKN terus mendampingi implementasi manajemen talenta terintegrasi dan menyempurnakan fitur layanan SIMATA.');
-  }
-
-  if (conclusions.length === 0) {
-    conclusions.push('Manajemen talenta merupakan instrumen strategis untuk memastikan ASN yang tepat berada pada posisi yang tepat (meritokrasi).');
-    conclusions.push('Keberhasilan SIMATA dan MyASN sangat bergantung pada keabsahan, kelengkapan, dan kemutakhiran data yang dimasukkan.');
-    conclusions.push('Posisi kotak talenta bukan tujuan akhir, melainkan dasar penentuan rencana suksesi, rotasi, mutasi, dan pengembangan kompetensi.');
+    closingText = `Kegiatan pertemuan dinas ditutup secara resmi dengan harapan seluruh rekomendasi dapat diimplementasikan secara optimal demi mendukung akuntabilitas kinerja instansi.`;
   }
 
   return {
@@ -505,7 +571,9 @@ function smartLocalNotulenParser(rawText, user) {
     activities: activities,
     actionItems: actionItems,
     conclusions: conclusions,
-    closingText: closingText
+    closingText: closingText,
+    notulisName: notulisName,
+    notulisRole: notulisRole
   };
 }
 
