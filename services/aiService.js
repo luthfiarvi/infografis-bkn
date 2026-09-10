@@ -141,124 +141,217 @@ Hasilkan HANYA objek JSON valid (tanpa markdown blok, tanpa awalan/akhiran apapu
 }
 
 /**
- * Smart Heuristic Semantic Parser lokal (Bekerja secara offline tanpa perlu API key)
+ * Smart Heuristic Semantic Parser lokal (Bekerja secara offline tanpa batasan / kuota)
+ * Mengekstrak seluruh butir pekerjaan, sub-aktivitas, dan matriks komponen tanpa pemotongan
  */
-function smartLocalParser(rawText, user) {
+function smartLocalParser(rawText, user = {}) {
   const text = rawText.trim();
   const now = new Date();
-  const isoDate = now.toISOString().split('T')[0];
-  const formattedDate = now.toLocaleDateString('id-ID', {
+  let isoDate = now.toISOString().split('T')[0];
+  let formattedDate = now.toLocaleDateString('id-ID', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
 
-  // 1. Ekstraksi Judul
-  let title = 'Laporan Kinerja Harian & Capaian Aktivitas';
-  const sentences = text.split(/[.\n]+/).map(s => s.trim()).filter(Boolean);
-  if (sentences.length > 0) {
-    const first = sentences[0];
-    if (first.length > 15 && first.length < 90) {
-      title = first.replace(/^(hari ini|laporan|saya|kami)\s*/i, '').trim();
-      title = title.charAt(0).toUpperCase() + title.slice(1);
+  // 1. Ekstraksi Judul & Tanggal
+  let title = '';
+  const namaKegiatanMatch = text.match(/(?:nama kegiatan|judul|kegiatan)\s*:\s*([^\n\r*]+)/i);
+  if (namaKegiatanMatch && namaKegiatanMatch[1].trim()) {
+    title = namaKegiatanMatch[1].trim();
+  } else {
+    const uraianMatch = text.match(/uraian tugas\s*:\s*([^:\n\r]+)/i);
+    if (uraianMatch && uraianMatch[1].trim()) {
+      title = uraianMatch[1].trim();
+    } else {
+      const headerMatch = text.match(/^([^:\n\r(]+?)(?::|\s*\([0-9]+\)|\n)/i);
+      if (headerMatch && headerMatch[1].trim().length > 10 && headerMatch[1].trim().length < 85) {
+        title = headerMatch[1].replace(/^(laporan|uraian tugas|hari ini|tugas|saya|kami)\s*/i, '').trim();
+      }
     }
   }
 
-  // 2. Ekstraksi Angka dan Metrik
+  if (!title || title.length < 5) {
+    title = 'Pengembangan Sistem Informasi Tata Naskah Kedinasan BKN';
+  }
+  title = title.replace(/[#*_`]/g, '').trim();
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+  if (title.length > 75) title = title.substring(0, 72) + '...';
+
+  // Cek tanggal di dalam teks jika ada
+  const dateMatch = text.match(/(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i);
+  if (dateMatch) {
+    const months = {
+      januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06',
+      juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12'
+    };
+    const mStr = months[dateMatch[2].toLowerCase()] || '01';
+    const dStr = String(dateMatch[1]).padStart(2, '0');
+    isoDate = `${dateMatch[3]}-${mStr}-${dStr}`;
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dObj = new Date(parseInt(dateMatch[3], 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10));
+    const dayName = !isNaN(dObj.getDay()) ? dayNames[dObj.getDay()] : 'Kamis';
+    formattedDate = `${dayName}, ${dateMatch[1]} ${dateMatch[2]} ${dateMatch[3]}`;
+  }
+
+  // 2. Ekstraksi Metrik
   const metrics = [];
-  
-  // Deteksi tiket/berkas/dokumen
-  const tiketMatch = text.match(/(\d+)\s*(tiket|berkas|layanan|dokumen|tugas|task|pekerjaan)/i) || text.match(/(tiket|berkas|layanan|dokumen)[\s\w:]*?(\d+)/i);
+  const tiketMatch = text.match(/(\d+)\s*(tiket|berkas|layanan|dokumen|tugas|task|pekerjaan|modul|berkas)/i) || text.match(/(tiket|berkas|layanan|dokumen)[\s\w:]*?(\d+)/i);
   if (tiketMatch) {
     const val = tiketMatch[1] && !isNaN(tiketMatch[1]) ? tiketMatch[1] : (tiketMatch[2] || '28');
-    metrics.push({ label: 'Tiket Selesai', value: val, note: 'Target harian terpenuhi' });
+    metrics.push({ label: 'Tugas Selesai', value: val, note: 'Target kinerja harian' });
   } else {
-    metrics.push({ label: 'Tiket Selesai', value: '25', note: 'Layanan kepegawaian' });
+    metrics.push({ label: 'Tugas Selesai', value: '100%', note: 'Selesai & terintegrasi' });
   }
 
-  // Deteksi waktu/durasi/SLA
   const waktuMatch = text.match(/(\d+)\s*(menit|mnt|m|jam|detik)/i);
   if (waktuMatch) {
-    metrics.push({ label: 'Waktu Respons', value: `${waktuMatch[1]}m`, note: 'SLA target standar BKN' });
+    metrics.push({ label: 'Waktu Respons', value: `${waktuMatch[1]}m`, note: 'Standar SLA BKN' });
   } else {
-    metrics.push({ label: 'Waktu Respons', value: '15m', note: 'Rata-rata kecepatan SLA' });
+    metrics.push({ label: 'Efisiensi Waktu', value: '15m', note: 'Kecepatan otomasi' });
   }
 
-  // Deteksi persen efisiensi / uptime / kepuasan
   const persenMatch = text.match(/(\d+(?:[.,]\d+)?)\s*%/g) || [];
   if (persenMatch.length > 0) {
-    metrics.push({ label: 'Efisiensi Sistem', value: persenMatch[0], note: 'Stabilitas & performa' });
+    metrics.push({ label: 'Penyelesaian', value: persenMatch[0], note: 'Kesiapan rilis sistem' });
   } else {
-    metrics.push({ label: 'Efisiensi Sistem', value: '99.2%', note: 'Uptime operasional' });
+    metrics.push({ label: 'Capaian Output', value: '100%', note: 'Target terpenuhi' });
   }
 
-  // Metrik ke-4 (Progres / Indeks)
-  if (persenMatch.length > 1) {
-    metrics.push({ label: 'Progres Capaian', value: persenMatch[1], note: 'Target sprint aktif' });
-  } else {
-    metrics.push({ label: 'Tingkat Kepuasan', value: '94%', note: 'Indeks kepuasan ASN' });
+  metrics.push({ label: 'Validasi Sistem', value: 'Teruji', note: 'End-to-end testing' });
+
+  // 3. Ekstraksi Komprehensif Seluruh Butir Kegiatan / Pekerjaan
+  const extractedTasks = [];
+
+  // Pola 1: Multi-line numbering (1. Judul \n * Subpoint...)
+  if (/(?:^|\n)\s*[0-9]+\.\s+/.test(text)) {
+    const lines = text.split(/\r?\n/);
+    let currentTask = null;
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      const numMatch = trimmed.match(/^[0-9]+\.\s+(.+)/);
+      if (numMatch) {
+        if (currentTask) extractedTasks.push(currentTask);
+        currentTask = {
+          title: numMatch[1].replace(/[#*_`]/g, '').trim(),
+          subPoints: []
+        };
+      } else if (currentTask && /^[*\-•]\s+/.test(trimmed)) {
+        const sub = trimmed.replace(/^[*\-•]\s+/, '').replace(/[#*_`]/g, '').trim();
+        if (sub.length > 5) currentTask.subPoints.push(sub);
+      }
+    });
+    if (currentTask) extractedTasks.push(currentTask);
   }
 
-  // 3. Ekstraksi Pilar Aktivitas
-  // Kelompokkan kalimat menjadi 2 pilar
-  const allItems = sentences.length > 1 ? sentences.slice(0, 8) : [
-    'Penyusunan modul otomasi pelaporan infografis terpadu',
-    'Integrasi basis data kepegawaian dan sinkronisasi profil',
-    'Validasi berkas administrasi dan layanan kepegawaian berkala',
-    'Monitoring dan evaluasi performa sistem pendukung ASN'
-  ];
+  // Pola 2: Inline numbering (1) ...; (2) ...; (3) ...
+  if (extractedTasks.length === 0 && /\([0-9]+\)/.test(text)) {
+    const inlineParts = text.split(/(?:;\s*|\s+)(?=\([0-9]+\))/);
+    inlineParts.forEach(part => {
+      const m = part.match(/\([0-9]+\)\s*(.+)/);
+      if (m && m[1].trim()) {
+        let clean = m[1]
+          .replace(/;\s*(?:serta|dan)?\s*$/i, '')
+          .replace(/^serta\s+/i, '')
+          .replace(/[#*_`]/g, '')
+          .trim();
+        if (clean.length > 5) {
+          extractedTasks.push({
+            title: clean,
+            subPoints: []
+          });
+        }
+      }
+    });
+  }
 
-  const mid = Math.ceil(allItems.length / 2);
-  const pilar1Items = allItems.slice(0, mid).map(s => s.replace(/^[-*•\d.]+\s*/, '').trim());
-  const pilar2Items = allItems.slice(mid).map(s => s.replace(/^[-*•\d.]+\s*/, '').trim());
+  // Pola 3: Bullet points
+  if (extractedTasks.length === 0) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    lines.forEach(l => {
+      if (/^[*\-•]\s+/.test(l)) {
+        const clean = l.replace(/^[*\-•]\s+/, '').replace(/[#*_`]/g, '').trim();
+        if (clean.length > 10 && !clean.toLowerCase().startsWith('hari') && !clean.toLowerCase().startsWith('nama kegiatan') && !clean.toLowerCase().startsWith('status')) {
+          extractedTasks.push({ title: clean, subPoints: [] });
+        }
+      }
+    });
+  }
 
-  const pillars = [
-    {
-      title: 'Inovasi Digital & Otomasi Sistem',
-      items: pilar1Items.length > 0 ? pilar1Items : ['Pengembangan modul digital kepegawaian', 'Peningkatan arsitektur sistem layanan']
-    },
-    {
-      title: 'Layanan & Koordinasi Kepegawaian',
-      items: pilar2Items.length > 0 ? pilar2Items : ['Sinkronisasi data pegawai berkala', 'Verifikasi usulan layanan kepegawaian BKN']
-    }
-  ];
+  // Pola 4: Pemecahan kalimat presisi
+  if (extractedTasks.length === 0) {
+    const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 15);
+    sentences.forEach(s => {
+      extractedTasks.push({ title: s, subPoints: [] });
+    });
+  }
 
-  // 4. Ekstraksi Tabel Matriks Komponen
+  // 4. Susun Matriks Komponen (SELURUH tugas dimasukkan sebagai baris tabel tanpa batas buatan)
   const tableRows = [];
-  const componentKeywords = [
-    { key: /autentikasi|login|session|auth/i, name: 'Modul Autentikasi & Keamanan Sesi', status: 'Selesai', target: '100%', ket: 'Bcrypt hash & proteksi middleware' },
-    { key: /profil|pegawai|nip|mentor|binding/i, name: 'Sistem Profil & Auto-Binding Sesi', status: 'Selesai', target: '100%', ket: 'Pre-filled data instansi & divisi' },
-    { key: /navbar|logo|header|tampilan|desain/i, name: 'Optimalisasi Antarmuka & Logo BKN', status: 'Selesai', target: '100%', ket: 'Standarisasi desain responsif' },
-    { key: /generator|infografis|preview/i, name: 'Panel Live Preview Infografis', status: 'Selesai', target: '100%', ket: 'Rendering DOM real-time' },
-    { key: /cetak|pdf|export|unduh/i, name: 'Modul Ekspor PDF Beresolusi Tinggi', status: 'Selesai', target: '100%', ket: 'Format cetak resmi standar BKN' }
-  ];
+  extractedTasks.forEach(task => {
+    let name = task.title;
+    let shortName = name;
+    if (name.includes(':')) {
+      shortName = name.split(':')[0].trim();
+    } else if (name.length > 65) {
+      shortName = name.substring(0, 62) + '...';
+    }
 
-  componentKeywords.forEach(item => {
-    if (item.key.test(text)) {
-      tableRows.push({
-        komponen: item.name,
-        status: item.status,
-        target: item.target,
-        ket: item.ket
+    let ket = 'Implementasi & pengujian tuntas';
+    if (task.subPoints && task.subPoints.length > 0) {
+      ket = task.subPoints[0];
+    } else if (name.includes(':')) {
+      ket = name.split(':').slice(1).join(':').trim();
+    }
+    if (ket.length > 70) ket = ket.substring(0, 67) + '...';
+
+    tableRows.push({
+      komponen: shortName,
+      status: 'Selesai',
+      target: '100%',
+      ket: ket
+    });
+  });
+
+  if (tableRows.length === 0) {
+    tableRows.push(
+      { komponen: 'Pengembangan Modul Notula Rapat BKN', status: 'Selesai', target: '100%', ket: 'Standar tata naskah & AI Notulis' },
+      { komponen: 'Ekspor Dokumen Microsoft Word (.docx)', status: 'Selesai', target: '100%', ket: 'Presisi format dinas BKN' }
+    );
+  }
+
+  // 5. Susun 2 Pilar Aktivitas (Semua aktivitas terdistribusi secara seimbang tanpa pembatasan)
+  const allPillarItems = [];
+  extractedTasks.forEach(t => {
+    allPillarItems.push(t.title);
+    if (t.subPoints && t.subPoints.length > 0) {
+      t.subPoints.forEach(sp => {
+        if (sp.length > 10 && allPillarItems.length < 16) {
+          allPillarItems.push(sp.length > 85 ? sp.substring(0, 82) + '...' : sp);
+        }
       });
     }
   });
 
-  // Jika tidak ada kata kunci yang cocok, buat dari butir kalimat
-  if (tableRows.length === 0) {
-    allItems.slice(0, 4).forEach((item, idx) => {
-      tableRows.push({
-        komponen: item.length > 40 ? item.substring(0, 38) + '...' : item,
-        status: idx === 0 ? 'Selesai' : 'Berjalan',
-        target: idx === 0 ? '100%' : '85%',
-        ket: 'Terdokumentasi dalam sistem harian'
-      });
-    });
-  }
+  const mid = Math.ceil(allPillarItems.length / 2);
+  const pilar1Items = allPillarItems.slice(0, mid);
+  const pilar2Items = allPillarItems.slice(mid);
+
+  const pillars = [
+    {
+      title: 'Pengembangan Modul & Tata Naskah Digital',
+      items: pilar1Items.length > 0 ? pilar1Items : ['Modul Notula Rapat Kedinasan BKN', 'Konversi Ekspor Word (.docx)']
+    },
+    {
+      title: 'Tata Kelola Sistem, Keamanan & Repositori',
+      items: pilar2Items.length > 0 ? pilar2Items : ['Tab Arsip Riwayat Dokumen BKN', 'Sinkronisasi Repositori GitHub']
+    }
+  ];
 
   return {
-    reportTitle: title.length > 60 ? title.substring(0, 57) + '...' : title,
+    reportTitle: title,
     reportSubtitle: user.institution || 'Kantor Regional V Badan Kepegawaian Negara',
     reportDate: isoDate,
     formattedDate: formattedDate,
