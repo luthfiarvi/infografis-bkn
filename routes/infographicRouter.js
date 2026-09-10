@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const infographicController = require('../controllers/infographicController');
+const notulenController = require('../controllers/notulenController');
 const { ensureAuthenticated } = require('../middleware/authMiddleware');
 const { uploadEvidence } = require('../middleware/uploadMiddleware');
 
@@ -8,7 +9,12 @@ const { uploadEvidence } = require('../middleware/uploadMiddleware');
 router.get('/', ensureAuthenticated, infographicController.getPortal);
 router.get('/portal', ensureAuthenticated, infographicController.getPortal);
 router.get('/dashboard', ensureAuthenticated, infographicController.getPortal);
-router.get('/notulen', ensureAuthenticated, infographicController.getNotulen);
+
+// Modul Notulen Rapat BKN
+router.get('/notulen', ensureAuthenticated, notulenController.getNotulenGenerator);
+router.get('/notulen/preview/:id', ensureAuthenticated, notulenController.getNotulenPreview);
+router.post('/api/notulen', ensureAuthenticated, notulenController.saveNotulen);
+router.post('/api/notulen/ai-generate', ensureAuthenticated, notulenController.aiGenerateNotulen);
 
 // Generator (Infographics)
 router.get('/generator', ensureAuthenticated, infographicController.getGenerator);

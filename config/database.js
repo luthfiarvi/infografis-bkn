@@ -100,6 +100,24 @@ async function initDatabase() {
                 ALTER TABLE infographics ADD COLUMN visual_evidence JSONB DEFAULT '[]';
             END IF;
         END $$;
+
+        CREATE TABLE IF NOT EXISTS notulen (
+            id SERIAL PRIMARY KEY,
+            user_id INT REFERENCES users(id) ON DELETE CASCADE,
+            title VARCHAR(500) NOT NULL,
+            meeting_date DATE NOT NULL,
+            meeting_time VARCHAR(100) NOT NULL,
+            meeting_place VARCHAR(255) NOT NULL,
+            agenda_data JSONB NOT NULL DEFAULT '[]',
+            attendees_data JSONB NOT NULL DEFAULT '[]',
+            activities_data JSONB NOT NULL DEFAULT '[]',
+            action_items JSONB NOT NULL DEFAULT '[]',
+            conclusions JSONB NOT NULL DEFAULT '[]',
+            closing_text TEXT,
+            notulis_name VARCHAR(255),
+            notulis_role VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
       `);
     } else {
       await new Promise((resolve, reject) => {
@@ -156,8 +174,30 @@ async function initDatabase() {
                   sqliteDb.run("ALTER TABLE infographics ADD COLUMN visual_evidence TEXT DEFAULT '[]'");
                 }
               }
-              resolve();
             });
+          });
+
+          sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS notulen (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                meeting_date TEXT NOT NULL,
+                meeting_time TEXT NOT NULL,
+                meeting_place TEXT NOT NULL,
+                agenda_data TEXT NOT NULL DEFAULT '[]',
+                attendees_data TEXT NOT NULL DEFAULT '[]',
+                activities_data TEXT NOT NULL DEFAULT '[]',
+                action_items TEXT NOT NULL DEFAULT '[]',
+                conclusions TEXT NOT NULL DEFAULT '[]',
+                closing_text TEXT,
+                notulis_name TEXT,
+                notulis_role TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `, (err) => {
+            if (err) return reject(err);
+            resolve();
           });
         });
       });

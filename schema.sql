@@ -34,3 +34,25 @@ CREATE TABLE IF NOT EXISTS infographics (
 -- Indeks performa pencarian dokumen per pengguna
 CREATE INDEX IF NOT EXISTS idx_infographics_user_id ON infographics(user_id);
 CREATE INDEX IF NOT EXISTS idx_infographics_report_date ON infographics(report_date);
+
+-- 3. Tabel notulen (Dokumen Notulensi Rapat & Risalah Kedinasan)
+CREATE TABLE IF NOT EXISTS notulen (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(500) NOT NULL,
+    meeting_date DATE NOT NULL,
+    meeting_time VARCHAR(100) NOT NULL,
+    meeting_place VARCHAR(255) NOT NULL,
+    agenda_data JSONB NOT NULL DEFAULT '[]',
+    attendees_data JSONB NOT NULL DEFAULT '[]',
+    activities_data JSONB NOT NULL DEFAULT '[]',
+    action_items JSONB NOT NULL DEFAULT '[]',
+    conclusions JSONB NOT NULL DEFAULT '[]',
+    closing_text TEXT,
+    notulis_name VARCHAR(255),
+    notulis_role VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notulen_user_id ON notulen(user_id);
+CREATE INDEX IF NOT EXISTS idx_notulen_meeting_date ON notulen(meeting_date);
