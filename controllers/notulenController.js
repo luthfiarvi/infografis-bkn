@@ -1,5 +1,7 @@
 const db = require('../config/database');
 const aiService = require('../services/aiService');
+const fs = require('fs');
+const path = require('path');
 
 const notulenController = {
   // GET /notulen
@@ -10,12 +12,20 @@ const notulenController = {
       const formattedDate = today.toLocaleDateString('id-ID', options);
       const isoDate = today.toISOString().split('T')[0];
 
-      // Ambil notulen terbaru user ini jika ada
-      const latestRes = await db.query(
-        'SELECT * FROM notulen WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
-        [req.user.id]
-      );
-      const latestDoc = latestRes.rows[0] || null;
+      // Ambil notulen berdasarkan id jika ada di query ?id=..., atau notulen terbaru
+      let docRes;
+      if (req.query.id) {
+        docRes = await db.query(
+          'SELECT * FROM notulen WHERE id = $1 AND user_id = $2',
+          [req.query.id, req.user.id]
+        );
+      } else {
+        docRes = await db.query(
+          'SELECT * FROM notulen WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+          [req.user.id]
+        );
+      }
+      const latestDoc = docRes.rows[0] || null;
 
       // Sample template data jika belum ada dokumen tersimpan
       const defaultData = latestDoc ? {
@@ -31,11 +41,12 @@ const notulenController = {
         actionItems: typeof latestDoc.action_items === 'string' ? JSON.parse(latestDoc.action_items) : latestDoc.action_items,
         conclusions: typeof latestDoc.conclusions === 'string' ? JSON.parse(latestDoc.conclusions) : latestDoc.conclusions,
         closingText: latestDoc.closing_text,
+        documentationPhotos: latestDoc.documentation_photos ? (typeof latestDoc.documentation_photos === 'string' ? JSON.parse(latestDoc.documentation_photos) : latestDoc.documentation_photos) : [],
         notulisName: latestDoc.notulis_name || req.user.full_name,
         notulisRole: latestDoc.notulis_role || req.user.division
       } : {
         id: null,
-        title: 'BKN MENYAPA ASN : Penguatan Implementasi Manajemen Talenta melalui SIMATA dan MyASN',
+        title: 'BKN MENYAPA ASN : PENGUATAN IMPLEMENTASI MANAJEMEN TALENTA MELALUI SIMATA DAN MYASN',
         meetingDate: isoDate,
         formattedDate: formattedDate,
         meetingTime: '09.00 – 11.30 WIB',
@@ -133,6 +144,7 @@ const notulenController = {
           'BKN mendorong instansi pusat dan daerah memanfaatkan SIMATA dan MyASN sebagai bagian dari pengelolaan karier ASN yang lebih objektif, transparan, dan berbasis data.'
         ],
         closingText: 'Kegiatan BKN Menyapa ASN ditutup dengan ajakan kepada seluruh ASN dan pengelola kepegawaian untuk merencanakan serta mengembangkan karier secara berkelanjutan, menjaga integritas dan moralitas, meningkatkan kinerja, serta aktif berkoordinasi dengan Biro SDM/BKD/BKPSDM/BKPP. BKN menegaskan komitmen untuk terus menyempurnakan sistem dan mendampingi implementasi manajemen talenta berbasis data.',
+        documentationPhotos: [],
         notulisName: req.user.full_name || 'Rizky Chandra Satria',
         notulisRole: req.user.division || 'Asisten Analis Sumber Daya Manusia'
       };
@@ -165,6 +177,7 @@ const notulenController = {
         actionItems,
         conclusions,
         closingText,
+        documentationPhotos,
         notulisName,
         notulisRole
       } = req.body;
@@ -178,10 +191,11 @@ const notulenController = {
       const activitiesJson = JSON.stringify(activities || []);
       const actionItemsJson = JSON.stringify(actionItems || []);
       const conclusionsJson = JSON.stringify(conclusions || []);
+      const docsJson = JSON.stringify(documentationPhotos || []);
 
       if (id) {
         // Update existing
-        const updateRes = await db.query(`
+        await db.query(`
           UPDATE notulen SET
             title = $1,
             meeting_date = $2,
@@ -193,14 +207,15 @@ const notulenController = {
             action_items = $8,
             conclusions = $9,
             closing_text = $10,
-            notulis_name = $11,
-            notulis_role = $12
-          WHERE id = $13 AND user_id = $14
+            documentation_photos = $11,
+            notulis_name = $12,
+            notulis_role = $13
+          WHERE id = $14 AND user_id = $15
           RETURNING id
         `, [
           title, meetingDate, meetingTime || '09.00 – 11.30 WIB', meetingPlace || 'Di Tempat',
           agendaJson, attendeesJson, activitiesJson, actionItemsJson, conclusionsJson,
-          closingText || '', notulisName || req.user.full_name, notulisRole || req.user.division,
+          closingText || '', docsJson, notulisName || req.user.full_name, notulisRole || req.user.division,
           id, req.user.id
         ]);
 
@@ -211,13 +226,13 @@ const notulenController = {
           INSERT INTO notulen (
             user_id, title, meeting_date, meeting_time, meeting_place,
             agenda_data, attendees_data, activities_data, action_items,
-            conclusions, closing_text, notulis_name, notulis_role
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            conclusions, closing_text, documentation_photos, notulis_name, notulis_role
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
           RETURNING id
         `, [
           req.user.id, title, meetingDate, meetingTime || '09.00 – 11.30 WIB', meetingPlace || 'Di Tempat',
           agendaJson, attendeesJson, activitiesJson, actionItemsJson,
-          conclusionsJson, closingText || '', notulisName || req.user.full_name, notulisRole || req.user.division
+          conclusionsJson, closingText || '', docsJson, notulisName || req.user.full_name, notulisRole || req.user.division
         ]);
 
         const newId = insertRes.rows && insertRes.rows[0] ? insertRes.rows[0].id : insertRes.lastID;
@@ -226,6 +241,18 @@ const notulenController = {
     } catch (err) {
       console.error('saveNotulen error:', err);
       return res.status(500).json({ success: false, message: 'Gagal menyimpan notulen: ' + err.message });
+    }
+  },
+
+  // DELETE /api/notulen/:id
+  deleteNotulen: async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.query('DELETE FROM notulen WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+      res.json({ success: true, message: 'Dokumen notulen berhasil dihapus dari arsip.' });
+    } catch (err) {
+      console.error('deleteNotulen error:', err);
+      res.status(500).json({ success: false, message: 'Gagal menghapus dokumen: ' + err.message });
     }
   },
 
@@ -246,6 +273,47 @@ const notulenController = {
     } catch (err) {
       console.error('aiGenerateNotulen error:', err);
       return res.status(500).json({ success: false, message: 'Gagal memproses notulen dengan AI: ' + err.message });
+    }
+  },
+
+  // POST /api/notulen/parse-transcript-file
+  parseTranscriptFile: async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Tidak ada berkas yang diunggah.' });
+      }
+
+      const filePath = req.file.path;
+      const originalName = req.file.originalname.toLowerCase();
+      let extractedText = '';
+
+      if (originalName.endsWith('.docx')) {
+        const mammoth = require('mammoth');
+        const result = await mammoth.extractRawText({ path: filePath });
+        extractedText = result.value;
+      } else {
+        // Anggap berkas teks biasa (.txt, .md, .csv)
+        extractedText = fs.readFileSync(filePath, 'utf-8');
+      }
+
+      // Bersihkan file sementara
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) {}
+
+      if (!extractedText || !extractedText.trim()) {
+        return res.status(400).json({ success: false, message: 'Berkas kosong atau teks tidak dapat diekstrak.' });
+      }
+
+      return res.json({
+        success: true,
+        message: `Berkas "${req.file.originalname}" berhasil dimuat!`,
+        filename: req.file.originalname,
+        text: extractedText.trim()
+      });
+    } catch (err) {
+      console.error('parseTranscriptFile error:', err);
+      return res.status(500).json({ success: false, message: 'Gagal memproses berkas: ' + err.message });
     }
   },
 
@@ -283,6 +351,7 @@ const notulenController = {
           actionItems: typeof doc.action_items === 'string' ? JSON.parse(doc.action_items) : doc.action_items,
           conclusions: typeof doc.conclusions === 'string' ? JSON.parse(doc.conclusions) : doc.conclusions,
           closingText: doc.closing_text,
+          documentationPhotos: doc.documentation_photos ? (typeof doc.documentation_photos === 'string' ? JSON.parse(doc.documentation_photos) : doc.documentation_photos) : [],
           notulisName: doc.notulis_name || req.user.full_name,
           notulisRole: doc.notulis_role || req.user.division
         }
@@ -290,6 +359,303 @@ const notulenController = {
     } catch (err) {
       console.error('getNotulenPreview error:', err);
       res.status(500).send('Terjadi kesalahan saat memuat preview notulen: ' + err.message);
+    }
+  },
+
+  // GET /notulen/export-docx/:id
+  exportDocx: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const docRes = await db.query(
+        'SELECT * FROM notulen WHERE id = $1 AND user_id = $2',
+        [id, req.user.id]
+      );
+
+      if (docRes.rows.length === 0) {
+        return res.status(404).send('Dokumen notulen tidak ditemukan.');
+      }
+
+      const docData = docRes.rows[0];
+      const today = new Date(docData.meeting_date || docData.created_at);
+      const formattedDate = today.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const agenda = typeof docData.agenda_data === 'string' ? JSON.parse(docData.agenda_data) : docData.agenda_data;
+      const attendees = typeof docData.attendees_data === 'string' ? JSON.parse(docData.attendees_data) : docData.attendees_data;
+      const activities = typeof docData.activities_data === 'string' ? JSON.parse(docData.activities_data) : docData.activities_data;
+      const actionItems = typeof docData.action_items === 'string' ? JSON.parse(docData.action_items) : docData.action_items;
+      const conclusions = typeof docData.conclusions === 'string' ? JSON.parse(docData.conclusions) : docData.conclusions;
+
+      const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = require('docx');
+
+      const docChildren = [];
+
+      // Kop Surat
+      docChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: 'BADAN KEPEGAWAIAN NEGARA KANTOR REGIONAL V', bold: true, size: 24, font: 'Arial' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: 'Jalan Raya Ciracas Nomor 36, Ciracas, Jakarta Timur, Jakarta 13730', size: 18, font: 'Arial' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: 'Telepon (021) 87721084 - 87721085; Faksimile (021) 87721085; Laman: jakarta.bkn.go.id; Pos-el: kanreg5.jakarta@bkn.go.id', size: 16, font: 'Arial' })
+          ],
+          border: {
+            bottom: { style: BorderStyle.DOUBLE, size: 12, color: '000000' }
+          },
+          spacing: { after: 300 }
+        })
+      );
+
+      // Judul Notula
+      docChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: 'NOTULA', bold: true, size: 26, font: 'Times New Roman' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: `(${docData.title})`, bold: true, size: 22, font: 'Times New Roman' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: `${formattedDate}, Waktu: ${docData.meeting_time}`, italics: true, size: 20, font: 'Times New Roman' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: `Tempat: ${docData.meeting_place}`, italics: true, size: 20, font: 'Times New Roman' })
+          ],
+          spacing: { after: 300 }
+        })
+      );
+
+      // 1. Agenda Kegiatan
+      docChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: 'AGENDA KEGIATAN', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          border: {
+            top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+            left: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+            right: { style: BorderStyle.SINGLE, size: 6, color: '000000' }
+          },
+          spacing: { before: 200, after: 150 }
+        })
+      );
+
+      (agenda || []).forEach(item => {
+        docChildren.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new TextRun({ text: item, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { after: 80 }
+          })
+        );
+      });
+
+      // 2. Peserta / Unsur yang Hadir
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'PESERTA / UNSUR YANG HADIR', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 300, after: 150 }
+        })
+      );
+
+      (attendees || []).forEach(item => {
+        docChildren.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new TextRun({ text: item, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { after: 80 }
+          })
+        );
+      });
+
+      // 3. Uraian Kegiatan
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'URAIAN KEGIATAN', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 300, after: 150 }
+        })
+      );
+
+      (activities || []).forEach(act => {
+        docChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: act.sectionTitle, bold: true, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { before: 150, after: 80 }
+          })
+        );
+        (act.points || []).forEach(pt => {
+          docChildren.push(
+            new Paragraph({
+              bullet: { level: 0 },
+              children: [
+                new TextRun({ text: pt, size: 22, font: 'Times New Roman' })
+              ],
+              spacing: { after: 80 }
+            })
+          );
+        });
+      });
+
+      // 4. Pokok Tindak Lanjut
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'POKOK TINDAK LANJUT', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 300, after: 150 }
+        })
+      );
+
+      (actionItems || []).forEach(item => {
+        docChildren.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new TextRun({ text: item, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { after: 80 }
+          })
+        );
+      });
+
+      // 5. Kesimpulan
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'KESIMPULAN', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 300, after: 150 }
+        })
+      );
+
+      (conclusions || []).forEach(item => {
+        docChildren.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            children: [
+              new TextRun({ text: item, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { after: 80 }
+          })
+        );
+      });
+
+      // 6. Penutup
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'PENUTUP', bold: true, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 300, after: 100 }
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: docData.closing_text || '', size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { after: 300 }
+        })
+      );
+
+      // 7. Dokumentasi / Bukti Kegiatan (Di Bawah Penutup!)
+      const docs = typeof docData.documentation_photos === 'string' ? JSON.parse(docData.documentation_photos) : (docData.documentation_photos || []);
+      if (docs.length > 0) {
+        docChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: 'DOKUMENTASI / BUKTI KEGIATAN', bold: true, size: 22, font: 'Times New Roman' })
+            ],
+            spacing: { before: 250, after: 150 }
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `* Terlampir ${docs.length} berkas foto/dokumentasi kegiatan pada sistem elektronik BKN.`, italics: true, size: 20, font: 'Times New Roman' })
+            ],
+            spacing: { after: 200 }
+          })
+        );
+      }
+
+      // 8. Tanda Tangan Notulis (Rata Kanan)
+      const sigDateOnly = formattedDate.includes(',') ? formattedDate.split(',')[1].trim() : formattedDate;
+      docChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [
+            new TextRun({ text: `Jakarta, ${sigDateOnly}`, size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { before: 400 }
+        }),
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [
+            new TextRun({ text: 'Notulis,', size: 22, font: 'Times New Roman' })
+          ],
+          spacing: { after: 900 }
+        }),
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [
+            new TextRun({ text: docData.notulis_name || req.user.full_name, bold: true, underline: {}, size: 22, font: 'Times New Roman' })
+          ]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [
+            new TextRun({ text: docData.notulis_role || req.user.division, size: 20, font: 'Times New Roman' })
+          ]
+        })
+      );
+
+      const doc = new Document({
+        sections: [{
+          properties: {
+            page: {
+              margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+            }
+          },
+          children: docChildren
+        }]
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      const safeTitle = (docData.title || 'Notula-BKN').replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 40);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="Notula-${safeTitle}.docx"`);
+      return res.send(buffer);
+    } catch (err) {
+      console.error('exportDocx error:', err);
+      res.status(500).send('Gagal membuat dokumen Word: ' + err.message);
     }
   }
 };

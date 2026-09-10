@@ -150,14 +150,20 @@ const infographicController = {
         [req.user.id]
       );
 
+      const notulenResult = await db.query(
+        'SELECT id, title, meeting_date, meeting_time, meeting_place, created_at FROM notulen WHERE user_id = $1 ORDER BY created_at DESC',
+        [req.user.id]
+      );
+
       res.render('history', {
-        title: 'Riwayat Infografis - Arsip Dokumen BKN',
+        title: 'Arsip Dokumen BKN - Infografis & Notulen',
         user: req.user,
-        infographics: result.rows
+        infographics: result.rows,
+        notulen: notulenResult.rows
       });
     } catch (err) {
       console.error('History view error:', err);
-      res.redirect('/generator?error=Gagal+memuat+riwayat+infografis');
+      res.redirect('/portal?error=Gagal+memuat+arsip+dokumen');
     }
   },
 

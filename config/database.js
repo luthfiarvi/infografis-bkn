@@ -114,10 +114,19 @@ async function initDatabase() {
             action_items JSONB NOT NULL DEFAULT '[]',
             conclusions JSONB NOT NULL DEFAULT '[]',
             closing_text TEXT,
+            documentation_photos JSONB DEFAULT '[]',
             notulis_name VARCHAR(255),
             notulis_role VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Add column documentation_photos if not exists (migration)
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='notulen' AND column_name='documentation_photos') THEN
+                ALTER TABLE notulen ADD COLUMN documentation_photos JSONB DEFAULT '[]';
+            END IF;
+        END $$;
       `);
     } else {
       await new Promise((resolve, reject) => {
@@ -191,12 +200,23 @@ async function initDatabase() {
                 action_items TEXT NOT NULL DEFAULT '[]',
                 conclusions TEXT NOT NULL DEFAULT '[]',
                 closing_text TEXT,
+                documentation_photos TEXT DEFAULT '[]',
                 notulis_name TEXT,
                 notulis_role TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
           `, (err) => {
             if (err) return reject(err);
+            
+            // SQLite Migration: Add documentation_photos if not exists
+            sqliteDb.all("PRAGMA table_info(notulen)", (nErr, nCols) => {
+              if (!nErr && nCols) {
+                const hasDocs = nCols.some(c => c.name === 'documentation_photos');
+                if (!hasDocs) {
+                  sqliteDb.run("ALTER TABLE notulen ADD COLUMN documentation_photos TEXT DEFAULT '[]'");
+                }
+              }
+            });
             resolve();
           });
         });

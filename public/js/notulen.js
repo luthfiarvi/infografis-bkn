@@ -17,12 +17,18 @@ let notulenState = window.initialNotulenData || {
   conclusions: [],
   closingText: '',
   notulisName: '',
-  notulisRole: ''
+  notulisRole: '',
+  documentationPhotos: []
 };
+
+if (!Array.isArray(notulenState.documentationPhotos)) {
+  notulenState.documentationPhotos = [];
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   initFormValues();
   renderDynamicLists();
+  renderDocumentationPhotos();
   updateLivePreview();
   setupEventListeners();
 });
@@ -135,6 +141,18 @@ function setupEventListeners() {
     });
   }
 
+  // File transkrip upload (.docx, .txt, .md)
+  const fileTranscriptInput = document.getElementById('transcriptFileInput');
+  if (fileTranscriptInput) {
+    fileTranscriptInput.addEventListener('change', handleTranscriptFileUpload);
+  }
+
+  // Foto Dokumentasi Kegiatan upload
+  const fileDocPhotoInput = document.getElementById('documentationFileInput');
+  if (fileDocPhotoInput) {
+    fileDocPhotoInput.addEventListener('change', handleDocumentationPhotoUpload);
+  }
+
   // Tombol AI Generate
   const btnAi = document.getElementById('btnAiProcess');
   if (btnAi) {
@@ -145,6 +163,12 @@ function setupEventListeners() {
   const btnSave = document.getElementById('btnSaveNotulen');
   if (btnSave) {
     btnSave.addEventListener('click', handleSaveNotulen);
+  }
+
+  // Tombol Export Docx
+  const btnDocx = document.getElementById('btnExportDocx');
+  if (btnDocx) {
+    btnDocx.addEventListener('click', handleExportDocx);
   }
 
   // Tombol Cetak / PDF
@@ -239,7 +263,7 @@ function renderActivitiesEditor() {
         <span style="font-size: 0.75rem; font-weight: 700; color: #0A2540;">Sesi ${actIndex + 1}</span>
         <button type="button" style="background: none; border: none; color: #EF4444; cursor: pointer; font-size: 0.75rem;" onclick="removeActivitySection(${actIndex})">Hapus Sesi</button>
       </div>
-      <input type="text" class="form-input" style="font-size: 0.825rem; font-weight: 600; margin-bottom: 0.5rem;" value="${act.sectionTitle || ''}" placeholder="Judul Sesi / Paparan" oninput="updateActivityTitle(${actIndex}, this.value)">
+      <input type="text" class="form-input" style="font-size: 0.825rem; font-weight: 600; margin-bottom: 0.5rem;" value="${escapeHtml(act.sectionTitle || '')}" placeholder="Judul Sesi / Paparan" oninput="updateActivityTitle(${actIndex}, this.value)">
       <div style="font-size: 0.725rem; font-weight: 600; color: #64748B; margin-bottom: 0.35rem;">Poin-Poin Pembahasan:</div>
       <div>${pointsHtml}</div>
       <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.725rem; padding: 0.25rem 0.6rem; margin-top: 0.25rem;" onclick="addActivityPoint(${actIndex})">+ Tambah Poin Poin</button>
@@ -288,6 +312,124 @@ function removeActivityPoint(actIndex, ptIndex) {
   updateLivePreview();
 }
 
+// Bukti Giat / Dokumentasi Photos Editor
+function renderDocumentationPhotos() {
+  const container = document.getElementById('documentationPhotosContainer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!notulenState.documentationPhotos || notulenState.documentationPhotos.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 1rem; border: 1px dashed #CBD5E1; border-radius: 0.5rem; text-align: center; color: #94A3B8; font-size: 0.775rem;">
+        Belum ada foto dokumentasi. Klik "+ Unggah Foto" di atas untuk menambahkan bukti kegiatan.
+      </div>
+    `;
+    return;
+  }
+
+  notulenState.documentationPhotos.forEach((photo, idx) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display: flex; gap: 0.75rem; align-items: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 0.5rem; padding: 0.5rem;';
+
+    item.innerHTML = `
+      <img src="${photo.url}" alt="Foto" style="width: 56px; height: 42px; object-fit: cover; border-radius: 4px; border: 1px solid #CBD5E1;">
+      <div style="flex: 1;">
+        <input type="text" class="form-input" style="font-size: 0.775rem; padding: 0.35rem 0.5rem;" value="${escapeHtml(photo.caption || '')}" placeholder="Keterangan / Kepsen Foto" oninput="updatePhotoCaption(${idx}, this.value)">
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" style="color: #EF4444; padding: 0.35rem 0.55rem;" onclick="removeDocumentationPhoto(${idx})" title="Hapus Foto">✕</button>
+    `;
+
+    container.appendChild(item);
+  });
+}
+
+function updatePhotoCaption(idx, val) {
+  if (notulenState.documentationPhotos[idx]) {
+    notulenState.documentationPhotos[idx].caption = val;
+    updateLivePreview();
+  }
+}
+
+function removeDocumentationPhoto(idx) {
+  if (notulenState.documentationPhotos) {
+    notulenState.documentationPhotos.splice(idx, 1);
+    renderDocumentationPhotos();
+    updateLivePreview();
+  }
+}
+
+// Upload Bukti Kegiatan Handler
+async function handleDocumentationPhotoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    showNotificationToast('⏳ Mengunggah foto dokumentasi...');
+    const res = await fetch('/api/upload-evidence', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, '');
+      notulenState.documentationPhotos.push({
+        url: data.url,
+        caption: `Dokumentasi Rapat: ${cleanName}`
+      });
+      renderDocumentationPhotos();
+      updateLivePreview();
+      showNotificationToast('✅ Foto berhasil ditambahkan ke bukti kegiatan!');
+    } else {
+      alert('Gagal mengunggah foto: ' + data.message);
+    }
+  } catch (err) {
+    console.error('Upload photo error:', err);
+    alert('Terjadi kesalahan jaringan saat upload foto.');
+  } finally {
+    e.target.value = '';
+  }
+}
+
+// Upload File Transkrip Handler (.docx, .txt, .md)
+async function handleTranscriptFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const statusText = document.getElementById('transcriptFileStatusText');
+  const origText = statusText ? statusText.textContent : 'Pilih File';
+  if (statusText) statusText.textContent = 'Membaca...';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    showNotificationToast('⏳ Mengekstrak teks dari file transkrip...');
+    const res = await fetch('/api/notulen/parse-transcript-file', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success && data.text) {
+      const input = document.getElementById('aiTranscriptInput');
+      if (input) {
+        input.value = data.text;
+      }
+      showNotificationToast(`📄 File "${file.name}" berhasil dibaca! Klik tombol AI di bawah untuk menyusun notulen.`);
+    } else {
+      alert('Gagal membaca file: ' + (data.message || 'Format tidak didukung'));
+    }
+  } catch (err) {
+    console.error('Transcript parse error:', err);
+    alert('Terjadi kesalahan membaca file dokumen transkrip.');
+  } finally {
+    if (statusText) statusText.textContent = origText;
+    e.target.value = '';
+  }
+}
+
 // Update Live Preview (Realtime BKN Paper)
 function updateLivePreview() {
   // Judul
@@ -325,7 +467,7 @@ function updateLivePreview() {
     let actHtml = '';
     (notulenState.activities || []).forEach(act => {
       actHtml += `
-        <div style="margin-bottom: 1rem;">
+        <div style="margin-bottom: 1.25rem;">
           <div class="notula-subsection-title">${escapeHtml(act.sectionTitle || '')}</div>
           <ul class="notula-list">
             ${(act.points || []).map(pt => pt ? `<li>${escapeHtml(pt)}</li>` : '').join('')}
@@ -354,6 +496,28 @@ function updateLivePreview() {
     pClosing.textContent = notulenState.closingText || '';
   }
 
+  // Bukti Giat / Dokumentasi Kegiatan (DIBAWAH PENUTUP & DIATAS TANDA TANGAN)
+  const pEvidenceSection = document.getElementById('previewEvidenceSection');
+  const pEvidenceGrid = document.getElementById('previewEvidenceGrid');
+  if (pEvidenceSection && pEvidenceGrid) {
+    if (notulenState.documentationPhotos && notulenState.documentationPhotos.length > 0) {
+      pEvidenceSection.style.display = 'block';
+      let gridHtml = '';
+      notulenState.documentationPhotos.forEach(photo => {
+        gridHtml += `
+          <div style="border: 1px solid #CBD5E1; border-radius: 4px; padding: 6px; background: #fafafa; text-align: center;">
+            <img src="${photo.url}" alt="${escapeHtml(photo.caption || 'Bukti Kegiatan')}" style="max-height: 180px; width: 100%; object-fit: cover; border-radius: 2px;">
+            ${photo.caption ? `<div style="font-size: 8.5pt; color: #475569; margin-top: 4px; font-style: italic;">${escapeHtml(photo.caption)}</div>` : ''}
+          </div>
+        `;
+      });
+      pEvidenceGrid.innerHTML = gridHtml;
+    } else {
+      pEvidenceSection.style.display = 'none';
+      pEvidenceGrid.innerHTML = '';
+    }
+  }
+
   // Tanda Tangan
   const pSigDate = document.getElementById('previewSigDate');
   if (pSigDate) {
@@ -368,7 +532,6 @@ function updateLivePreview() {
 }
 
 function extractDateOnly(dateWithDay) {
-  // Misalnya "Kamis, 10 September 2026" -> "10 September 2026"
   if (dateWithDay.includes(',')) {
     return dateWithDay.split(',')[1].trim();
   }
@@ -389,7 +552,7 @@ function escapeHtml(text) {
 async function handleAiGenerate() {
   const input = document.getElementById('aiTranscriptInput');
   if (!input || !input.value.trim()) {
-    alert('Harap masukkan transkrip atau catatan rapat terlebih dahulu.');
+    alert('Harap masukkan transkrip atau upload file catatan rapat terlebih dahulu.');
     return;
   }
 
@@ -460,12 +623,29 @@ async function handleSaveNotulen() {
 
     if (data.id) notulenState.id = data.id;
     showNotificationToast('✅ Dokumen notulen berhasil disimpan ke database!');
+    return data.id;
   } catch (err) {
     console.error('Save error:', err);
     alert('Gagal menyimpan notulen: ' + err.message);
+    return null;
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;
+  }
+}
+
+// Export Docx Handler
+async function handleExportDocx() {
+  if (!notulenState.id) {
+    showNotificationToast('⏳ Menyimpan notulen terlebih dahulu sebelum unduh Word...');
+    const savedId = await handleSaveNotulen();
+    if (savedId) {
+      window.location.href = `/notulen/export-docx/${savedId}`;
+    }
+  } else {
+    // Simpan perubahan terakhir lalu unduh
+    await handleSaveNotulen();
+    window.location.href = `/notulen/export-docx/${notulenState.id}`;
   }
 }
 

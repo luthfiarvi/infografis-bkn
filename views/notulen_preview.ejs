@@ -22,6 +22,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
     }
     @media print {
       body {
@@ -43,14 +45,26 @@
 <body>
 
   <div class="preview-actions">
-    <a href="/notulen" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 0.4rem; text-decoration: none;">
-      <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-      <span>Kembali ke Editor</span>
-    </a>
-    <button type="button" onclick="window.print()" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 0.4rem;">
-      <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-      <span>Cetak / Simpan PDF A4</span>
-    </button>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/notulen?id=<%= doc.id %>" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 0.4rem; text-decoration: none;">
+        <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <span>Kembali ke Editor</span>
+      </a>
+      <a href="/history?tab=notulen" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 0.4rem; text-decoration: none;">
+        <span>📂 Riwayat Notulen</span>
+      </a>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/notulen/export-docx/<%= doc.id %>" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 0.4rem; text-decoration: none; color: #1D4ED8; border-color: #BFDBFE; background: #EFF6FF;">
+        <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        <span>📥 Unduh Word (.docx)</span>
+      </a>
+      <button type="button" onclick="window.print()" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 0.4rem;">
+        <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        <span>Cetak / Simpan PDF A4</span>
+      </button>
+    </div>
   </div>
 
   <div class="notula-paper">
@@ -107,7 +121,7 @@
     </div>
     <div>
       <% (doc.activities || []).forEach(function(act) { %>
-        <div style="margin-bottom: 1rem;">
+        <div style="margin-bottom: 1.25rem;">
           <div class="notula-subsection-title"><%= act.sectionTitle %></div>
           <ul class="notula-list">
             <% (act.points || []).forEach(function(pt) { %>
@@ -146,6 +160,25 @@
       <%= doc.closingText %>
     </p>
 
+    <!-- BUKTI GIAT / DOKUMENTASI KEGIATAN (LANGSUNG DIBAWAH PENUTUP & DIATAS TANDA TANGAN) -->
+    <% if (doc.documentationPhotos && doc.documentationPhotos.length > 0) { %>
+      <div style="margin-top: 2rem; margin-bottom: 2rem; page-break-inside: avoid;">
+        <div class="notula-section-heading" style="margin-bottom: 1rem;">
+          DOKUMENTASI / BUKTI KEGIATAN
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+          <% doc.documentationPhotos.forEach(function(photo) { %>
+            <div style="border: 1px solid #CBD5E1; border-radius: 4px; padding: 6px; background: #fafafa; text-align: center;">
+              <img src="<%= photo.url %>" alt="<%= photo.caption || 'Dokumentasi Giat' %>" style="max-height: 180px; width: 100%; object-fit: cover; border-radius: 2px;">
+              <% if (photo.caption) { %>
+                <div style="font-size: 8.5pt; color: #475569; margin-top: 4px; font-style: italic;"><%= photo.caption %></div>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
     <!-- 7. Tanda Tangan Notulis (Rata Kanan) -->
     <div style="display: flex; justify-content: flex-end; margin-top: 2.5rem; page-break-inside: avoid;">
       <div class="notula-signature-block">
@@ -161,6 +194,7 @@
       <span>Notula <%= doc.title %></span>
       <span>Dokumen Resmi Kanreg V BKN</span>
     </div>
+
   </div>
 
 </body>

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS notulen (
     action_items JSONB NOT NULL DEFAULT '[]',
     conclusions JSONB NOT NULL DEFAULT '[]',
     closing_text TEXT,
+    documentation_photos JSONB DEFAULT '[]',
     notulis_name VARCHAR(255),
     notulis_role VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

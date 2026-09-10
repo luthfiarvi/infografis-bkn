@@ -13,8 +13,11 @@ router.get('/dashboard', ensureAuthenticated, infographicController.getPortal);
 // Modul Notulen Rapat BKN
 router.get('/notulen', ensureAuthenticated, notulenController.getNotulenGenerator);
 router.get('/notulen/preview/:id', ensureAuthenticated, notulenController.getNotulenPreview);
+router.get('/notulen/export-docx/:id', ensureAuthenticated, notulenController.exportDocx);
 router.post('/api/notulen', ensureAuthenticated, notulenController.saveNotulen);
+router.delete('/api/notulen/:id', ensureAuthenticated, notulenController.deleteNotulen);
 router.post('/api/notulen/ai-generate', ensureAuthenticated, notulenController.aiGenerateNotulen);
+router.post('/api/notulen/parse-transcript-file', ensureAuthenticated, uploadEvidence.single('file'), notulenController.parseTranscriptFile);
 
 // Generator (Infographics)
 router.get('/generator', ensureAuthenticated, infographicController.getGenerator);
