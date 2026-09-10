@@ -46,7 +46,7 @@ const authController = {
         avatar_path: user.avatar_path || '/images/default_avatar.svg'
       };
 
-      const redirectPath = req.session.returnTo || '/generator';
+      const redirectPath = req.session.returnTo || '/portal';
       delete req.session.returnTo;
 
       res.redirect(redirectPath);

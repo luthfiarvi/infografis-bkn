@@ -264,6 +264,32 @@ const infographicController = {
       console.error('Delete infographic error:', err);
       res.status(500).json({ success: false, message: 'Gagal menghapus dokumen.' });
     }
+  },
+
+  // GET /portal
+  getPortal: async (req, res) => {
+    try {
+      res.render('portal', {
+        title: 'Portal Dokumen & Layanan Digital - BKN',
+        user: req.user
+      });
+    } catch (err) {
+      console.error('Portal error:', err);
+      res.redirect('/generator');
+    }
+  },
+
+  // GET /notulen
+  getNotulen: async (req, res) => {
+    try {
+      res.render('notulen', {
+        title: 'Pembuat Notulen Rapat Kedinasan - BKN',
+        user: req.user
+      });
+    } catch (err) {
+      console.error('Notulen error:', err);
+      res.redirect('/portal');
+    }
   }
 };
 

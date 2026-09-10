@@ -20,7 +20,7 @@ function ensureAuthenticated(req, res, next) {
 
 function redirectIfAuthenticated(req, res, next) {
   if (req.session && req.session.user) {
-    return res.redirect('/generator');
+    return res.redirect('/portal');
   }
   next();
 }

@@ -4,9 +4,13 @@ const infographicController = require('../controllers/infographicController');
 const { ensureAuthenticated } = require('../middleware/authMiddleware');
 const { uploadEvidence } = require('../middleware/uploadMiddleware');
 
-// Dashboard / Generator (protected)
-router.get('/', ensureAuthenticated, infographicController.getGenerator);
-router.get('/dashboard', ensureAuthenticated, infographicController.getGenerator);
+// Portal & Options (protected)
+router.get('/', ensureAuthenticated, infographicController.getPortal);
+router.get('/portal', ensureAuthenticated, infographicController.getPortal);
+router.get('/dashboard', ensureAuthenticated, infographicController.getPortal);
+router.get('/notulen', ensureAuthenticated, infographicController.getNotulen);
+
+// Generator (Infographics)
 router.get('/generator', ensureAuthenticated, infographicController.getGenerator);
 
 // History & standalone preview
