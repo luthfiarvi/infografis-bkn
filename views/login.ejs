@@ -1,0 +1,69 @@
+<%- include('layouts/header', { title: 'Login Pegawai - BKN Infografis' }) %>
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="text-center" style="margin-bottom: 2rem;">
+      <img src="/images/Logo_Badan_Kepegawaian_Negara.png" alt="Logo BKN" style="height: 84px; width: auto; margin: 0 auto 1rem; display: block; object-fit: contain;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; color: #0A2540; letter-spacing: -0.01em;">BADAN KEPEGAWAIAN NEGARA</h2>
+      <p style="font-size: 0.825rem; color: #64748B; margin-top: 0.25rem;">Automated Infographic Generator & Monitoring</p>
+      <div style="margin-top: 0.5rem; display: inline-block; padding: 0.2rem 0.65rem; background: #FEF3C7; color: #92400E; font-size: 0.725rem; font-weight: 700; border-radius: 9999px;">
+        KANTOR REGIONAL V JAKARTA
+      </div>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error">
+        <svg style="width: 1.25rem; height: 1.25rem; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <% if (success) { %>
+      <div class="alert alert-success">
+        <svg style="width: 1.25rem; height: 1.25rem; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+        <span><%= success %></span>
+      </div>
+    <% } %>
+
+    <form action="/login" method="POST">
+      <div class="form-group">
+        <label for="username" class="form-label">Nama Pengguna / Username</label>
+        <input type="text" id="username" name="username" class="form-input" placeholder="Masukkan username" required autofocus autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Kata Sandi / Password</label>
+        <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" style="padding: 0.65rem; margin-top: 0.5rem;">
+        <svg style="width: 1.1rem; height: 1.1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+        <span>Masuk ke Generator</span>
+      </button>
+    </form>
+
+    <!-- Quick Demo Credential Button -->
+    <div style="margin-top: 1.25rem; padding: 0.85rem; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 0.5rem; text-align: center;">
+      <div style="font-size: 0.725rem; color: #64748B; margin-bottom: 0.5rem; font-weight: 500;">
+        Akun Bawaan Sistem (Seeder BKN):
+      </div>
+      <button type="button" onclick="fillDemo()" class="btn btn-secondary btn-sm w-full" style="font-size: 0.75rem;">
+        ⚡ Isi Otomatis Akun Default (luthfi / admin123)
+      </button>
+    </div>
+
+    <div class="text-center" style="margin-top: 1.5rem; font-size: 0.8125rem; color: #64748B;">
+      Belum memiliki akun pegawai?
+      <a href="/register" style="color: #1D4ED8; font-weight: 600; text-decoration: none;">Daftar Akun Baru</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  function fillDemo() {
+    document.getElementById('username').value = 'luthfi';
+    document.getElementById('password').value = 'admin123';
+  }
+</script>
+
+<%- include('layouts/footer') %>

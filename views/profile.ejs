@@ -1,0 +1,147 @@
+<%- include('layouts/header', { title: 'Profil Pegawai - BKN Infografis' }) %>
+
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div style="max-width: 48rem; margin: 0 auto;">
+    
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+      <div>
+        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0A2540;">Manajemen Profil Pegawai</h1>
+        <p style="font-size: 0.875rem; color: #64748B;">Data ini otomatis mengikat dan terisi (auto-bind) ke formulir infografis harian Anda.</p>
+      </div>
+      <a href="/generator" class="btn btn-secondary btn-sm">
+        ← Kembali ke Generator
+      </a>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error">
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <% if (success) { %>
+      <div class="alert alert-success">
+        <span><%= success %></span>
+      </div>
+    <% } %>
+
+    <div class="form-panel">
+      <!-- Live Profile Badge Preview -->
+      <div style="background: linear-gradient(135deg, #0A2540 0%, #164e85 100%); border-radius: 0.75rem; padding: 1.25rem; color: white; margin-bottom: 1.75rem; border-left: 5px solid #D97706; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <div style="width: 58px; height: 58px; border-radius: 50%; background: #0A2540; overflow: hidden; border: 2px solid #F59E0B; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img id="badge-avatar-img" src="<%= user.avatar_path || '/images/default_avatar.png' %>" alt="<%= user.full_name %>" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div>
+            <div style="font-size: 1.1rem; font-weight: 700;"><%= user.full_name %></div>
+            <div style="font-size: 0.8rem; color: #FDE68A;"><%= user.division %></div>
+            <div style="font-size: 0.725rem; color: #CBD5E1;"><%= user.institution %></div>
+          </div>
+        </div>
+        <div style="text-align: right; background: rgba(255,255,255,0.1); padding: 0.5rem 0.85rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.15);">
+          <div style="font-size: 0.675rem; color: #FDE68A; text-transform: uppercase;">Pembimbing / Mentor:</div>
+          <div style="font-size: 0.825rem; font-weight: 600;"><%= user.mentor_name || 'Belum diisi' %></div>
+        </div>
+      </div>
+
+      <form action="/profile" method="POST" enctype="multipart/form-data">
+        
+        <!-- Foto Profil Pegawai -->
+        <div class="section-header">
+          <span class="section-title">Foto Profil Pegawai</span>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1.25rem;">
+          <div style="width: 64px; height: 64px; border-radius: 50%; background: #0A2540; border: 2px solid #D97706; overflow: hidden; flex-shrink: 0;">
+            <img id="avatar-form-preview" src="<%= user.avatar_path || '/images/default_avatar.png' %>" alt="Foto Profil Pegawai" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div style="flex-grow: 1;">
+            <label for="avatar" class="form-label" style="margin-bottom: 0.25rem;">Unggah Foto Profil Baru</label>
+            <input type="file" id="avatar" name="avatar" accept="image/*" class="form-input" style="padding: 0.4rem 0.5rem; font-size: 0.8125rem;">
+            <div style="font-size: 0.725rem; color: #64748B; margin-top: 0.25rem;">Format JPG, PNG, atau WEBP (Maksimal 5MB). Foto ini akan digunakan di navbar dan kartu infografis Anda.</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <span class="section-title">Identitas Pegawai BKN</span>
+        </div>
+
+        <div class="form-group">
+          <label for="full_name" class="form-label">Nama Lengkap & Gelar *</label>
+          <input type="text" id="full_name" name="full_name" class="form-input" value="<%= user.full_name %>" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="division" class="form-label">Jabatan / Divisi *</label>
+            <input type="text" id="division" name="division" class="form-input" value="<%= user.division %>" required>
+          </div>
+
+          <div class="form-group">
+            <label for="institution" class="form-label">Instansi / Satuan Kerja</label>
+            <input type="text" id="institution" name="institution" class="form-input" value="<%= user.institution %>" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="mentor_name" class="form-label">Nama Mentor / Pembimbing</label>
+            <input type="text" id="mentor_name" name="mentor_name" class="form-input" value="<%= user.mentor_name || '' %>" placeholder="Nama Atasan / Mentor">
+          </div>
+
+          <div class="form-group">
+            <label for="logo_path" class="form-label">Path Logo Instansi</label>
+            <input type="text" id="logo_path" name="logo_path" class="form-input" value="<%= user.logo_path || '/images/Logo_Badan_Kepegawaian_Negara.png' %>">
+          </div>
+        </div>
+
+        <div class="section-header" style="margin-top: 1.5rem;">
+          <span class="section-title">Pengaturan Akun & Keamanan</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Username (Permanen)</label>
+            <input type="text" class="form-input" value="<%= user.username %>" readonly>
+          </div>
+
+          <div class="form-group">
+            <label for="new_password" class="form-label">Ganti Password (Kosongkan jika tidak diubah)</label>
+            <input type="password" id="new_password" name="new_password" class="form-input" placeholder="••••••••">
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <a href="/generator" class="btn btn-secondary">Batal</a>
+          <button type="submit" class="btn btn-primary">
+            <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span>Simpan Perubahan Profil</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const avatarInput = document.getElementById('avatar');
+  const avatarFormPreview = document.getElementById('avatar-form-preview');
+  const badgeAvatarImg = document.getElementById('badge-avatar-img');
+
+  if (avatarInput) {
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (avatarFormPreview) avatarFormPreview.src = event.target.result;
+          if (badgeAvatarImg) badgeAvatarImg.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+</script>
+
+<%- include('layouts/footer') %>

@@ -1,0 +1,31 @@
+{
+  "name": "automated-infographic-generator",
+  "version": "1.0.0",
+  "description": "Aplikasi Automated Infographic Generator BKN dengan Autentikasi dan Profil Pegawai",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "seed": "node seeders/seed.js"
+  },
+  "keywords": [
+    "infographic",
+    "bkn",
+    "generator",
+    "dashboard",
+    "auth"
+  ],
+  "author": "BKN Kanreg V",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "jimp": "^1.6.1",
+    "multer": "^2.3.0",
+    "pg": "^8.13.1",
+    "sqlite3": "^5.1.7"
+  }
+}

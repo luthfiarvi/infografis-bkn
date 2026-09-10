@@ -1,0 +1,105 @@
+<%- include('layouts/header', { title: 'Registrasi Pegawai - BKN Infografis' }) %>
+
+<div class="auth-wrapper">
+  <div class="auth-card auth-card-wide">
+    <div class="text-center" style="margin-bottom: 1.5rem;">
+      <img src="/images/Logo_Badan_Kepegawaian_Negara.png" alt="Logo BKN" style="height: 72px; width: auto; margin: 0 auto 0.75rem; display: block; object-fit: contain;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; color: #0A2540;">Pendaftaran Akun Pegawai BKN</h2>
+      <p style="font-size: 0.8125rem; color: #64748B;">Lengkapi profil identitas pegawai untuk auto-binding data laporan</p>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error">
+        <svg style="width: 1.25rem; height: 1.25rem; flex-shrink: 0;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <form action="/register" method="POST" enctype="multipart/form-data">
+      
+      <!-- Input Foto Profil Pegawai -->
+      <div class="form-group" style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 0.5rem; padding: 0.875rem 1rem; margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-size: 0.8125rem; margin-bottom: 0.5rem; color: #0A2540;">Foto Profil Pegawai (Opsional)</label>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <div id="avatar-preview-box" style="width: 58px; height: 58px; border-radius: 50%; background: #0A2540; border: 2px solid #D97706; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img id="avatar-preview-img" src="/images/default_avatar.png" alt="Preview Foto" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div style="flex-grow: 1;">
+            <input type="file" id="avatar" name="avatar" accept="image/*" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.75rem;">
+            <div style="font-size: 0.7rem; color: #64748B; margin-top: 0.25rem;">Format JPG, PNG, atau WEBP. Foto akan otomatis muncul pada navbar dan infografis.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="username" class="form-label">Username Login *</label>
+          <input type="text" id="username" name="username" class="form-input" placeholder="masukkan username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Password *</label>
+          <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="full_name" class="form-label">Nama Lengkap & Gelar *</label>
+        <input type="text" id="full_name" name="full_name" class="form-input" placeholder="Nama Lengkap & Gelar" required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="division" class="form-label">Jabatan / Bidang Tugas *</label>
+          <input type="text" id="division" name="division" class="form-input" placeholder="contoh: Analis Kepegawaian / Pengembang Sistem" required>
+        </div>
+
+        <div class="form-group">
+          <label for="institution" class="form-label">Instansi / Unit Kerja</label>
+          <input type="text" id="institution" name="institution" class="form-input" value="Kantor Regional V BKN Jakarta" required>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="mentor_name" class="form-label">Nama Mentor / Pembimbing</label>
+          <input type="text" id="mentor_name" name="mentor_name" class="form-input" placeholder="Nama Atasan / Pembimbing">
+        </div>
+
+        <div class="form-group">
+          <label for="logo_path" class="form-label">Path Logo Instansi</label>
+          <input type="text" id="logo_path" name="logo_path" class="form-input" value="/images/Logo_Badan_Kepegawaian_Negara.png">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" style="padding: 0.65rem; margin-top: 0.5rem;">
+        <svg style="width: 1.1rem; height: 1.1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+        <span>Daftarkan Akun Pegawai</span>
+      </button>
+
+      <div class="text-center" style="margin-top: 1.25rem; font-size: 0.8125rem; color: #64748B;">
+        Sudah memiliki akun?
+        <a href="/login" style="color: #1D4ED8; font-weight: 600; text-decoration: none;">Masuk di sini</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const avatarInput = document.getElementById('avatar');
+  const avatarPreviewImg = document.getElementById('avatar-preview-img');
+  if (avatarInput && avatarPreviewImg) {
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          avatarPreviewImg.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+</script>
+
+<%- include('layouts/footer') %>
