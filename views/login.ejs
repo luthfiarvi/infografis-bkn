@@ -42,13 +42,13 @@
       </button>
     </form>
 
-    <!-- Quick Demo Credential Button -->
+    <!-- Quick Admin Login Button -->
     <div style="margin-top: 1.25rem; padding: 0.85rem; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 0.5rem; text-align: center;">
       <div style="font-size: 0.725rem; color: #64748B; margin-bottom: 0.5rem; font-weight: 500;">
-        Akun Bawaan Sistem (Seeder BKN):
+        Akses Cepat Pengujian Sistem:
       </div>
-      <button type="button" onclick="fillDemo()" class="btn btn-secondary btn-sm w-full" style="font-size: 0.75rem;">
-        ⚡ Isi Otomatis Akun Default (luthfi / admin123)
+      <button type="button" onclick="fillAdminLogin()" class="btn btn-secondary btn-sm w-full" style="font-size: 0.775rem; font-weight: 600; color: #0A2540;">
+        ⚡ Masuk sebagai Admin BKN (adminbkn)
       </button>
     </div>
 
@@ -60,8 +60,8 @@
 </div>
 
 <script>
-  function fillDemo() {
-    document.getElementById('username').value = 'luthfi';
+  function fillAdminLogin() {
+    document.getElementById('username').value = 'adminbkn';
     document.getElementById('password').value = 'admin123';
   }
 </script>
